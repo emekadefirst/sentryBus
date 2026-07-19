@@ -4,7 +4,12 @@ import { getAdapter } from "../core/adapters";
 
 export const QUEUE_NAME = "bus-events";
 
-export const busQueue = new Queue(QUEUE_NAME, { connection: getBullConnection() });
+let _queue: Queue | null = null;
+
+export function getBusQueue(): Queue {
+  if (!_queue) _queue = new Queue(QUEUE_NAME, { connection: getBullConnection() });
+  return _queue;
+}
 
 // BullMQ ships "fixed" and "exponential" backoff, but neither reads a
 // per-adapter delay/jitter, and "linear" isn't built in at all. One custom

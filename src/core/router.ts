@@ -1,4 +1,4 @@
-import { busQueue } from "../libs/queue";
+import { getBusQueue } from "../libs/queue";
 import { adaptersForTopic } from "./adapters";
 import { logger } from "../utils/logger";
 import type { Envelope } from "./envelop";
@@ -17,14 +17,14 @@ export async function routeEnvelope(envelope: Envelope): Promise<number> {
     return 0;
   }
 
+  const queue = getBusQueue();
+
   await Promise.all(
     adapters.map((adapter) =>
-      busQueue.add(
+      queue.add(
         adapter.name,
         { envelope, adapterName: adapter.name },
         {
-          // Same envelope + same adapter never double-queues, even if the
-          // producer retries the original HTTP request.
           jobId: `${envelope.id}:${adapter.name}`,
           attempts: adapter.retry.maxAttempts,
           backoff: { type: "custom" },

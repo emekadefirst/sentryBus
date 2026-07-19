@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { resolve } from "node:path";
 import { envSchemas, type envDTO } from "../schemas/envConfigSchemas";
 
 let _config: envDTO | null = null;
@@ -9,7 +10,7 @@ let _config: envDTO | null = null;
  */
 export async function loadEnvConfig(path = "bus/env.config.toml"): Promise<envDTO> {
   if (_config) return _config;
-  const abs = Bun.resolveSync(path, process.cwd());
+  const abs = resolve(process.cwd(), path);
   const mod = await import(pathToFileURL(abs).href);
   _config = envSchemas.parse(mod.default);
   return _config;

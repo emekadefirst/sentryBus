@@ -1,6 +1,6 @@
 {
   "name": "sentrybus",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "General-purpose integration/service bus with per-adapter retry, circuit breaking, and config-driven routing",
   "author": "Victor Chibuogwu Chukemeka <emekadefirst@gmail.com>",
   "license": "MIT",

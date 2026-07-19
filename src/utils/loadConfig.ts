@@ -11,6 +11,7 @@ export async function loadConfigFiles(dir = "bus"): Promise<string[]> {
   const glob = new Glob(CONFIG_GLOB);
   const files: string[] = [];
   for await (const path of glob.scan({ cwd: dir, absolute: true, onlyFiles: true })) {
+    if (path.endsWith("env.config.toml")) continue; // not an adapter
     files.push(path);
   }
   return files.sort();
