@@ -1,0 +1,23 @@
+name = "zoho-crm"
+enabled = true
+protocol = "http"
+baseUrl = "https://www.zohoapis.com/crm/v6"
+timeoutMs = 5000
+credentialKey = "ZOHO_CRM_TOKEN"
+topics = ["driver.onboarded", "company.account.updated"]
+envelopeVersion = "1.0"
+
+[rateLimit]
+burst = 20
+refillPerSecond = 5
+
+[retry]
+maxAttempts = 5
+backoff = "exponential"
+baseDelayMs = 500
+jitter = true
+
+[circuitBreaker]
+failureThreshold = 5
+windowMs = 60000
+cooldownMs = 30000
