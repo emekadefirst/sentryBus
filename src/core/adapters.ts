@@ -1,6 +1,6 @@
-import { loadConfigFiles } from "../utils/loader";
+import { loadConfigFiles } from "../utils/loadConfig";
 import { readConfigFile } from "../utils/configFileReader";
-import { loadServiceAdapters, type ServiceAdapter } from "../schemas/serviceAdaptor";
+import { loadServiceAdapters, type ServiceAdapter } from "../schemas/serviceAdaptorSchemas";
 import { logger } from "../utils/logger";
 
 let adapters: ServiceAdapter[] = [];

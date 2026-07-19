@@ -1,25 +1,30 @@
 import Redis from "ioredis";
-import { requireEnv } from "./env";
+import { getEnvConfig } from "../utils/envConfigReader";
 
-// Dedicated connection for BullMQ. Nothing else in the bus talks to Redis
-// directly right now — circuit breaker state lives in-process (see
-// core/circuitBreaker.ts). If something else needs Redis later, give it its
-// own connection rather than sharing this one.
-export const bullConnection = new Redis({
-  host: requireEnv("REDIS_HOST"),
-  port: Number(requireEnv("REDIS_PORT")),
-  username: requireEnv("REDIS_USERNAME"),
-  password: requireEnv("REDIS_PASSWORD"),
-  // Required by BullMQ — its blocking calls fail outright without this.
-  maxRetriesPerRequest: null,
-  enableReadyCheck: true,
-  retryStrategy(times) {
-    // Keep retrying rather than giving up — a client that stops reconnecting
-    // after a few tries means the bus silently stops processing jobs until
-    // a manual restart.
-    return Math.min(times * 500, 10_000);
-  },
-});
+let _connection: Redis | null = null;
 
-bullConnection.on("connect", () => console.log("[Redis] connected"));
-bullConnection.on("error", (err) => console.error("[Redis] error:", err.message));
+/**
+ * Lazy-init the Redis connection. Must be called after loadEnvConfig().
+ */
+export function getBullConnection(): Redis {
+  if (_connection) return _connection;
+
+  const env = getEnvConfig();
+
+  _connection = new Redis({
+    host: env.REDIS_HOST,
+    port: env.REDIS_PORT,
+    username: env.REDIS_USERNAME,
+    password: env.REDIS_PASSWORD,
+    maxRetriesPerRequest: null,
+    enableReadyCheck: true,
+    retryStrategy(times) {
+      return Math.min(times * 500, 10_000);
+    },
+  });
+
+  _connection.on("connect", () => console.log("[Redis] connected"));
+  _connection.on("error", (err) => console.error("[Redis] error:", err.message));
+
+  return _connection;
+}

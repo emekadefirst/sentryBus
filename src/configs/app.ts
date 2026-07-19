@@ -1,10 +1,10 @@
-import { requireEnv } from "./env";
+import { getEnvConfig } from "../utils/envConfigReader";
 
-export const appConfig = {
-  port: Number(requireEnv("PORT") || 8085),
-  host: requireEnv("HOST") || "0.0.0.0",
-  env: (requireEnv("NODE_ENV") || "dev") as "dev" | "staging" | "prod" | "test",
-  apiVersion: requireEnv("VERSION") || "v1",
-  baseUrl: requireEnv("URL") || "http://localhost:8085",
-  isProd: requireEnv("NODE_ENV") === "production",
-} as const;
+export function getAppConfig() {
+  const env = getEnvConfig();
+  return {
+    port: env.PORT,
+    host: env.HOST,
+    baseUrl: env.URL,
+  } as const;
+}

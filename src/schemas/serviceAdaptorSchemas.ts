@@ -60,35 +60,3 @@ export function loadServiceAdapters(raw: unknown): ServiceAdapter[] {
   return z.array(ServiceAdapterSchema).parse(raw);
 }
 
-// --- Example entries, for reference ---
-//
-// const zohoAdapter: ServiceAdapter = {
-//   name: "zoho-crm",
-//   enabled: true,
-//   protocol: "http",
-//   baseUrl: "https://www.zohoapis.com/crm/v6",
-//   timeoutMs: 5000,
-//   credentialKey: "ZOHO_CRM_TOKEN",
-//   topics: ["driver.onboarded", "company.account.updated"],
-//   rateLimit: { burst: 20, refillPerSecond: 5 },
-//   retry: { maxAttempts: 5, backoff: "exponential", baseDelayMs: 500, jitter: true },
-//   circuitBreaker: { failureThreshold: 5, windowMs: 60_000, cooldownMs: 30_000 },
-//   envelopeVersion: "1.0",
-//   // no webhookRoute/webhookSecret — outbound-only for now
-// };
-//
-// const blnkAdapter: ServiceAdapter = {
-//   name: "blnk-ledger",
-//   enabled: true,
-//   protocol: "http",
-//   baseUrl: "https://ledger.internal.example.com",
-//   timeoutMs: 8000,
-//   credentialKey: "BLNK_API_KEY",
-//   topics: ["shipment.delivered", "invoice.due"],
-//   rateLimit: { burst: 10, refillPerSecond: 2 },
-//   retry: { maxAttempts: 8, backoff: "exponential", baseDelayMs: 1000, jitter: true },
-//   circuitBreaker: { failureThreshold: 3, windowMs: 60_000, cooldownMs: 45_000 },
-//   webhookRoute: "/webhooks/blnk",
-//   webhookSecret: "BLNK_WEBHOOK_SIGNING_SECRET",
-//   envelopeVersion: "1.0",
-// };

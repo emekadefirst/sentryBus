@@ -1,5 +1,5 @@
 import { Worker, type Job } from "bullmq";
-import { bullConnection } from "../configs/redis";
+import { getBullConnection } from "../configs/redis";
 import { QUEUE_NAME, backoffStrategy } from "../libs/queue";
 import { getAdapter } from "./adapters";
 import { allowDispatch, recordSuccess, recordFailure } from "./circuitBreaker";
@@ -73,7 +73,7 @@ async function processDispatchJob(job: Job<DispatchJobData>) {
 
 export function startDispatchWorker(): Worker<DispatchJobData> {
   const worker = new Worker<DispatchJobData>(QUEUE_NAME, processDispatchJob, {
-    connection: bullConnection,
+    connection: getBullConnection(),
     settings: { backoffStrategy },
   });
 

@@ -1,2 +1,2 @@
-export { appConfig } from "./app";
-export { assertEnvComplete } from "./env";
+export { getAppConfig } from "./app";
+export { getBullConnection } from "./redis";

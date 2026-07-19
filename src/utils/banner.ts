@@ -1,4 +1,4 @@
-import type { ServiceAdapter } from "../schemas/serviceAdaptor";
+import type { ServiceAdapter } from "../schemas/serviceAdaptorSchemas";
 
 // ANSI escape helpers — no dependency needed
 const c = {

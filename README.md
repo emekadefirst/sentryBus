@@ -13,7 +13,7 @@ A general-purpose integration/service bus. Organizations plug their services in 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Configuration](#configuration)
-  - [Environment Variables](#environment-variables)
+  - [Environment Config (env.config.toml)](#environment-config-envconfigtoml)
   - [Adapter Config Files](#adapter-config-files)
   - [Adapter Config Reference](#adapter-config-reference)
 - [Usage](#usage)
@@ -114,35 +114,37 @@ SentryBus sits between your application and the third-party services it integrat
 
 ```
 sentryBus/
-├── bus/                          # Adapter config files (one per integration)
-│   ├── zoho-crm.config.toml
-│   └── blnk.config.toml
+├── bus/                            # All config lives here
+│   ├── env.config.toml             # Port, host, Redis credentials
+│   ├── zoho-crm.config.toml       # Adapter: Zoho CRM
+│   └── blnk.config.toml           # Adapter: Blnk Ledger
 ├── src/
-│   ├── index.ts                  # Entrypoint — server, worker, adapter loading
+│   ├── index.ts                    # Entrypoint — boot, server, worker
 │   ├── configs/
-│   │   ├── app.ts                # App config (port, host, env)
-│   │   ├── env.ts                # requireEnv + assertEnvComplete
-│   │   ├── index.ts              # Barrel export
-│   │   └── redis.ts              # Redis/BullMQ connection
+│   │   ├── app.ts                  # App config (reads from env.config.toml)
+│   │   ├── redis.ts                # Redis connection (reads from env.config.toml)
+│   │   └── index.ts                # Barrel export
 │   ├── core/
-│   │   ├── adapters.ts           # Adapter registry (load, query by topic/name)
-│   │   ├── circuitBreaker.ts     # Per-adapter in-process breaker
-│   │   ├── dispatcher.ts         # BullMQ Worker — outbound dispatch
-│   │   ├── envelop.ts            # Envelope schema + builder
-│   │   ├── injest.ts             # HTTP handler for POST /publish
-│   │   ├── middleares.ts         # Middleware: compose, logging, error boundary
-│   │   └── router.ts             # Fan-out: envelope → per-adapter BullMQ jobs
+│   │   ├── adapters.ts             # Adapter registry (load, query by topic/name)
+│   │   ├── circuitBreaker.ts       # Per-adapter in-process breaker
+│   │   ├── dispatcher.ts           # BullMQ Worker — outbound dispatch
+│   │   ├── envelop.ts              # Envelope schema + builder
+│   │   ├── injest.ts               # HTTP handler for POST /publish
+│   │   ├── middleares.ts           # Middleware: compose, logging, error boundary
+│   │   └── router.ts              # Fan-out: envelope → per-adapter BullMQ jobs
 │   ├── libs/
-│   │   └── queue.ts              # BullMQ Queue + custom backoff strategy
+│   │   └── queue.ts                # BullMQ Queue + custom backoff strategy
 │   ├── middleware/
-│   │   └── index.ts              # Re-exports from core/middleares.ts
+│   │   └── index.ts                # Re-exports from core/middleares.ts
 │   ├── schemas/
-│   │   └── serviceAdaptor.ts     # Zod schema for adapter config validation
+│   │   ├── envConfigSchemas.ts     # Zod schema for env.config.toml
+│   │   └── serviceAdaptorSchemas.ts # Zod schema for adapter configs
 │   └── utils/
-│       ├── configFileReader.ts   # Parses a single TOML file (Bun native)
-│       ├── loader.ts             # Globs bus/*.config.toml
-│       └── logger.ts             # Structured JSON logger with secret redaction
-├── .env                          # Environment variables (never committed)
+│       ├── banner.ts               # Startup banner (ASCII art + service list)
+│       ├── configFileReader.ts     # Parses a single TOML file (Bun native)
+│       ├── envConfigReader.ts      # Loads + validates env.config.toml
+│       ├── loader.ts               # Globs bus/*.config.toml (adapters only)
+│       └── logger.ts               # Structured JSON logger with secret redaction
 ├── package.json
 └── tsconfig.json
 ```
@@ -152,55 +154,64 @@ sentryBus/
 ## Prerequisites
 
 - [Bun](https://bun.sh) v1.0+
-- [Redis](https://redis.io) 6+ (or Docker: `docker run -d --name redis -p 6379:6379 redis:7-alpine --requirepass <password>`)
-- Node.js is **not** required — this runs on Bun's runtime
+- [Redis](https://redis.io) 6+
+
+Quick Redis via Docker:
+
+```bash
+docker run -d --name redis -p 6379:6379 redis:7-alpine --requirepass supersecretpassword
+```
 
 ---
 
 ## Installation
 
 ```bash
-git clone https://github.com/emekadefirst/serviceBus.git
-cd serviceBus
+# From source
+git clone https://github.com/emekadefirst/sentryBus.git
+cd sentryBus
 bun install
+
+# Or install as a package
+bun add -g sentrybus
 ```
 
 ---
 
 ## Configuration
 
-### Environment Variables
+All configuration lives in the `bus/` directory. No `.env` file needed.
 
-Create a `.env` file in the project root:
+### Environment Config (env.config.toml)
 
-```env
-PORT=8085
-HOST=localhost
-NODE_ENV=dev
-VERSION=v1
-URL=http://localhost:8085
+`bus/env.config.toml` holds the bus's own runtime settings and Redis credentials:
 
-REDIS_USERNAME=default
-REDIS_PASSWORD=supersecretpassword
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
+```toml
+PORT = 8085
+HOST = "localhost"
+URL = "http://localhost:8085"
+
+REDIS_USERNAME = "default"
+REDIS_PASSWORD = "supersecretpassword"
+REDIS_HOST = "127.0.0.1"
+REDIS_PORT = 6379
 ```
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | HTTP server port | `8085` |
-| `HOST` | Bind address | `0.0.0.0` |
-| `NODE_ENV` | Environment (`dev`, `staging`, `prod`, `test`) | `dev` |
-| `VERSION` | API version prefix | `v1` |
-| `URL` | Public base URL | `http://localhost:8085` |
-| `REDIS_USERNAME` | Redis ACL username | — |
-| `REDIS_PASSWORD` | Redis password | — |
-| `REDIS_HOST` | Redis host | — |
-| `REDIS_PORT` | Redis port | — |
+| Field | Type | Description |
+|-------|------|-------------|
+| `PORT` | number | HTTP server port |
+| `HOST` | string | Bind address |
+| `URL` | string (URL) | Public base URL |
+| `REDIS_USERNAME` | string | Redis ACL username |
+| `REDIS_PASSWORD` | string | Redis password |
+| `REDIS_HOST` | string | Redis host |
+| `REDIS_PORT` | number | Redis port |
+
+Validated by Zod at boot — a typo or missing field fails immediately with a clear error message, not silently at runtime.
 
 ### Adapter Config Files
 
-Each integration gets its own file in the `bus/` directory. The bus reads all `*.config.toml` files at boot, validates each against the Zod schema, and fails loudly if any are malformed.
+Each integration gets its own `*.config.toml` file in `bus/`. The bus reads all adapter configs at boot, validates each against the Zod schema, and fails loudly if any are malformed.
 
 **Example: `bus/zoho-crm.config.toml`**
 
@@ -269,10 +280,10 @@ cooldownMs = 45000
 | `protocol` | `"http"` \| `"sse"` \| `"ws"` | ✓ | Transport protocol |
 | `baseUrl` | string (URL) | ✓ | Target service base URL |
 | `timeoutMs` | number | ✓ | Request timeout in milliseconds |
-| `credentialKey` | string | ✓ | Env var name holding the credential (never the credential itself) |
+| `credentialKey` | string | ✓ | Env var name holding the credential |
 | `topics` | string[] | ✓ | Event types this adapter subscribes to |
 | `envelopeVersion` | string | ✓ | Envelope schema version this adapter expects |
-| `webhookRoute` | string | — | Inbound webhook path (for bidirectional adapters) |
+| `webhookRoute` | string | — | Inbound webhook path (bidirectional adapters) |
 | `webhookSecret` | string | — | Env var name for webhook signature verification |
 | `rateLimit.burst` | number | ✓ | Token bucket max burst |
 | `rateLimit.refillPerSecond` | number | ✓ | Token refill rate |
@@ -296,12 +307,39 @@ bun run dev
 
 # Production
 bun run start
+
+# If installed globally
+sentrybus
 ```
 
-Output:
+On startup you'll see:
+
 ```
-{"time":"2026-07-19T10:00:00.000Z","level":"info","msg":"adapters loaded","count":2,"names":["blnk-ledger","zoho-crm"]}
-service bus listening on http://localhost:8085/
+  ███████╗███████╗███╗   ██╗████████╗██████╗ ██╗   ██╗
+  ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██╔══██╗╚██╗ ██╔╝
+  ███████╗█████╗  ██╔██╗ ██║   ██║   ██████╔╝ ╚████╔╝
+  ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██╔══██╗  ╚██╔╝
+  ███████║███████╗██║ ╚████║   ██║   ██║  ██║   ██║
+  ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝
+  ██████╗ ██╗   ██╗███████╗
+  ██╔══██╗██║   ██║██╔════╝
+  ██████╔╝██║   ██║███████╗
+  ██╔══██╗██║   ██║╚════██║
+  ██████╔╝╚██████╔╝███████║
+  ╚═════╝  ╚═════╝ ╚══════╝
+
+  by Victor Chibuogwu Chukemeka aka Emekadefirst  • July 2026
+  ✉  emekadefirst@gmail.com
+
+  Services in bus:
+  ────────────────────────────────────────
+  zoho-crm  ● enabled
+    → driver.onboarded, company.account.updated
+  blnk-ledger  ● enabled
+    → shipment.delivered, invoice.due
+  ────────────────────────────────────────
+
+   🚀 LISTENING  http://localhost:8085
 ```
 
 ### Publishing Events
@@ -343,8 +381,8 @@ curl -X POST http://localhost:8085/publish \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | ✓ | Event topic (e.g. `"order.created"`, `"driver.onboarded"`) |
-| `correlationId` | string | — | Your tracking ID (auto-generated UUID if omitted) |
+| `type` | string | ✓ | Event topic (e.g. `"order.created"`) |
+| `correlationId` | string | — | Your tracking ID (UUID auto-generated if omitted) |
 | `payload` | object | ✓ | Arbitrary event data |
 
 ### Health Check
@@ -354,7 +392,7 @@ curl http://localhost:8085/health
 ```
 
 ```json
-{ "status": "ok", "env": "dev" }
+{ "status": "ok" }
 ```
 
 ---
@@ -363,7 +401,7 @@ curl http://localhost:8085/health
 
 ### Envelope
 
-Every event flowing through SentryBus is wrapped in a normalized envelope. The producer supplies only the intent (`type` + `payload`); the bus stamps bookkeeping fields (`id`, `timestamp`, `version`, `correlationId`).
+Every event flowing through SentryBus is wrapped in a normalized envelope. The producer supplies only the intent (`type` + `payload`); the bus stamps bookkeeping fields.
 
 ```typescript
 {
@@ -378,43 +416,33 @@ Every event flowing through SentryBus is wrapped in a normalized envelope. The p
 
 ### Adapters
 
-An adapter represents one external service integration. At boot, SentryBus loads all `bus/*.config.toml` files, validates each against the Zod schema, and builds an in-memory registry. Only adapters with `enabled = true` participate in routing.
-
-The adapter registry supports two queries:
-- `adaptersForTopic(topic)` — which adapters care about this event type?
-- `getAdapter(name)` — look up a specific adapter by name
+An adapter represents one external service integration. At boot, SentryBus loads all `bus/*.config.toml` files (excluding `env.config.toml`), validates each against the Zod schema, and builds an in-memory registry. Only adapters with `enabled = true` participate in routing.
 
 ### Queue & Retry
 
-SentryBus uses BullMQ backed by Redis for persistent job queuing. Key behaviors:
+BullMQ backed by Redis for persistent job queuing:
 
-- **Per-adapter jobs** — Each adapter gets its own job for the same envelope. A Blnk failure retries independently of a Zoho dispatch that already succeeded.
-- **Deduplication** — Job ID is `{envelopeId}:{adapterName}`, so even if the producer retries the original HTTP request, the same event never double-queues for the same adapter.
-- **Custom backoff** — A single `backoffStrategy` function reads each adapter's own retry policy (fixed/linear/exponential + jitter), so behavior matches exactly what's declared in the config.
-- **Dead-lettering** — After `maxAttempts` exhausted, the job is dead-lettered and logged at error level.
+- **Per-adapter jobs** — Each adapter gets its own job. A Blnk failure retries independently of Zoho.
+- **Deduplication** — Job ID is `{envelopeId}:{adapterName}`. Same event never double-queues.
+- **Custom backoff** — Reads each adapter's retry policy directly from config (fixed/linear/exponential + jitter).
+- **Dead-lettering** — After `maxAttempts` exhausted, logged at error level.
 
 ### Circuit Breaker
 
-An in-process, per-adapter state machine with three states:
+In-process, per-adapter state machine:
 
 | State | Behavior |
 |-------|----------|
-| **Closed** | Normal operation — all dispatches allowed |
-| **Open** | Service is down — dispatches fail fast (no network call), retries via BullMQ backoff |
-| **Half-open** | Cooldown elapsed — exactly one probe request allowed through |
-
-Transitions:
-- `closed → open`: consecutive failures ≥ `failureThreshold` within `windowMs`
-- `open → half-open`: `cooldownMs` has elapsed since opening
-- `half-open → closed`: probe succeeds
-- `half-open → open`: probe fails
+| **Closed** | Normal — all dispatches go through |
+| **Open** | Service down — fail fast, no network call |
+| **Half-open** | Cooldown elapsed — one probe allowed |
 
 ### Middleware
 
-Bun.serve has no built-in middleware chain. SentryBus provides a minimal `compose` utility:
+Minimal `compose` utility for Bun.serve (no framework dependency):
 
-- **withRequestLog** — Logs method, path, status, and duration for every request.
-- **withErrorBoundary** — Catches unhandled errors and returns a clean 500 instead of crashing.
+- **withRequestLog** — method, path, status, duration
+- **withErrorBoundary** — catches unhandled errors, returns clean 500
 
 ---
 
@@ -434,21 +462,18 @@ Bun.serve has no built-in middleware chain. SentryBus provides a minimal `compos
 ### Adding a New Adapter
 
 1. Create `bus/<service-name>.config.toml` with the required fields.
-2. Add the credential to your `.env` (the value of `credentialKey`).
-3. Restart the bus — it validates and loads the new adapter automatically.
+2. Set the credential as an environment variable (the value referenced by `credentialKey`).
+3. Restart the bus. Done.
 
-That's it for outbound-only integrations. No code changes needed.
+No code changes needed for outbound-only integrations.
 
 ### Bidirectional Adapters (Webhooks)
 
-For services that call back (like Blnk's async transaction confirmations):
+For services that call back (like Blnk):
 
-1. Add `webhookRoute` and `webhookSecret` to the adapter's config.
-2. Implement a route handler in `src/index.ts` that:
-   - Verifies the webhook signature
-   - Translates the callback into an internal event type
-   - Publishes it back onto the bus via the same `/publish` flow
-3. The platform's own consumer picks up the resulting event.
+1. Add `webhookRoute` and `webhookSecret` to the adapter config.
+2. Implement a route handler that verifies the signature and translates the callback into an internal event.
+3. Publish it back onto the bus — downstream consumers pick it up.
 
 ---
 
@@ -456,27 +481,50 @@ For services that call back (like Blnk's async transaction confirmations):
 
 | Decision | Rationale |
 |----------|-----------|
-| **Choreography over orchestration** | The bus moves envelopes, not business logic. No central workflow engine that becomes a monolith. |
-| **Redis + BullMQ only** | A true multi-broker abstraction (Kafka + Redis + RabbitMQ) is a real engineering problem. Committed to one for now, interfaces are clean enough to add another later. |
-| **BullMQ over hand-rolled queues** | Atomic job state transitions (Lua scripts) and stalled-job recovery are genuinely hard to get right. Duplicate dispatch = duplicate ledger entries. |
-| **Config over code** | Connection details, policies, and bindings live in TOML. Transformation logic stays in typed handler code. |
-| **One file per adapter** | A bad TOML edit affects one integration, not all of them. Clean git diffs. No merge conflicts. |
-| **Zod schema as single source of truth** | TypeScript type is derived via `z.infer`. No hand-written `.d.ts` that can drift. |
-| **Circuit breaker in-process** | Simpler than Redis-backed. Correct while running as a single instance. Move to Redis only when multi-instance is needed. |
-| **Bun runtime** | Iteration speed, native TOML parsing, fast HTTP server. The bus is I/O-bound, not CPU-bound. |
+| **TOML config over .env** | Validated by Zod at boot. Typed, structured, fails loudly. No silent empty-string bugs. |
+| **Choreography over orchestration** | Bus moves envelopes, not business logic. |
+| **Redis + BullMQ only** | Multi-broker abstraction is a real problem. Commit to one, keep interfaces clean. |
+| **BullMQ over hand-rolled queues** | Atomic state transitions + stalled-job recovery are hard to get right. |
+| **One file per adapter** | Bad edit affects one integration, not all. Clean diffs. |
+| **Zod as single source of truth** | Types derived via `z.infer`. No drift. |
+| **Circuit breaker in-process** | Correct for single instance. Move to Redis when multi-instance is needed. |
+| **Bun runtime** | Native TOML, fast HTTP, built-in bundler. No extra dependencies for basics. |
 
 ---
 
 ## Known Gaps
 
-- **Adapter dispatch is generic** — Currently a plain `POST` + `Bearer` header. Real adapters need per-service request shaping (Zoho OAuth flow, Blnk transaction payload format).
-- **Webhook receiver not implemented** — Config supports `webhookRoute`/`webhookSecret` but no route handler exists yet.
-- **Rate limiting not enforced** — Config defines `rateLimit` per adapter but the token bucket isn't wired into the dispatcher yet.
-- **No hot-reload** — Config changes require a restart. Deliberate at this stage.
-- **Single instance only** — Circuit breaker state is in-memory. Multi-instance deployment would need shared state in Redis.
+- **Adapter dispatch is generic** — Currently a plain `POST` + `Bearer` header. Real adapters need per-service request shaping.
+- **Webhook receiver not implemented** — Config supports it, route handler doesn't exist yet.
+- **Rate limiting not enforced** — Config defines token bucket params but the limiter isn't wired in.
+- **No hot-reload** — Config changes require restart. Deliberate for now.
+- **Single instance only** — Circuit breaker is in-memory.
+
+---
+
+## Publishing
+
+SentryBus is published to npm and installable via any package manager:
+
+```bash
+# Install globally
+bun add -g sentrybus
+npm install -g sentrybus
+
+# Run without installing
+bunx sentrybus
+npx sentrybus
+```
+
+Requires Bun runtime (`bun.sh`) to execute.
 
 ---
 
 ## License
 
 MIT
+
+---
+
+Built by **Victor Chibuogwu Chukemeka** ([@emekadefirst](https://github.com/emekadefirst))  
+Contact: emekadefirst@gmail.com
