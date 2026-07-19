@@ -3,7 +3,9 @@ import { injest } from "./core/injest";
 import { loadAdapters } from "./core/adapters";
 import { startDispatchWorker } from "./core/dispatcher";
 import { compose, withErrorBoundary, withRequestLog } from "./middleware";
-await loadAdapters();
+import { printBanner } from "./utils/banner";
+
+const adapters = await loadAdapters();
 startDispatchWorker();
 
 const handleInjest = compose(withErrorBoundary, withRequestLog)(injest);
@@ -23,4 +25,4 @@ const server = Bun.serve({
   },
 });
 
-console.log(`service bus listening on ${server.url}`);
+printBanner(adapters, server.port);
