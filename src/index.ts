@@ -1,4 +1,12 @@
 import { appConfig } from "./configs";
+import { injest } from "./core/injest";
+import { loadAdapters } from "./core/adapters";
+import { startDispatchWorker } from "./core/dispatcher";
+import { compose, withErrorBoundary, withRequestLog } from "./middleware";
+await loadAdapters();
+startDispatchWorker();
+
+const handleInjest = compose(withErrorBoundary, withRequestLog)(injest);
 
 const server = Bun.serve({
   port: appConfig.port,
@@ -8,7 +16,10 @@ const server = Bun.serve({
     if (pathname === "/health") {
       return Response.json({ status: "ok", env: appConfig.env });
     }
-    return new Response("service bus up", { status: 200 });
+    if (pathname === "/publish" && req.method === "POST") {
+      return handleInjest(req);
+    }
+    return new Response("not found", { status: 404 });
   },
 });
 

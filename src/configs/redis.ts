@@ -1,30 +1,25 @@
-import { requireEnv } from "./env";
 import Redis from "ioredis";
+import { requireEnv } from "./env";
 
-const redisEnv = {
-  username: requireEnv("REDIS_USERNAME"),
-  password: requireEnv("REDIS_PASSWORD"),
+// Dedicated connection for BullMQ. Nothing else in the bus talks to Redis
+// directly right now — circuit breaker state lives in-process (see
+// core/circuitBreaker.ts). If something else needs Redis later, give it its
+// own connection rather than sharing this one.
+export const bullConnection = new Redis({
   host: requireEnv("REDIS_HOST"),
   port: Number(requireEnv("REDIS_PORT")),
-};
-
-export const redisConfig = redisEnv;
-
-export const redis = new Redis({
-  ...redisEnv,
-  // ponytail: BullMQ needs this to be `null` on blocking connections. Give
-  // BullMQ its own connection, or set null here if this instance feeds it.
-  maxRetriesPerRequest: 3,
+  username: requireEnv("REDIS_USERNAME"),
+  password: requireEnv("REDIS_PASSWORD"),
+  // Required by BullMQ — its blocking calls fail outright without this.
+  maxRetriesPerRequest: null,
   enableReadyCheck: true,
   retryStrategy(times) {
-    if (times > 3) return null; // stop after 3 attempts
-    return Math.min(times * 200, 2000); // 200ms, 400ms, 800ms backoff
-  },
-  reconnectOnError(err) {
-    return err.message.includes("READONLY"); // cluster failover
+    // Keep retrying rather than giving up — a client that stops reconnecting
+    // after a few tries means the bus silently stops processing jobs until
+    // a manual restart.
+    return Math.min(times * 500, 10_000);
   },
 });
 
-redis.on("connect", () => console.log("[Redis] Connected"));
-redis.on("error", (err) => console.error("[Redis] Error:", err.message));
-redis.on("reconnecting", () => console.log("[Redis] Reconnecting..."));
+bullConnection.on("connect", () => console.log("[Redis] connected"));
+bullConnection.on("error", (err) => console.error("[Redis] error:", err.message));

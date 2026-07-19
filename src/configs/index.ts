@@ -1,2 +1,2 @@
 export { appConfig } from "./app";
-export { redis } from "./redis";
+export { assertEnvComplete } from "./env";
