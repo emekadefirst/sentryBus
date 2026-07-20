@@ -20,6 +20,7 @@ const handleInjest = compose(withErrorBoundary, withRequestLog)(injest);
 const server = Bun.serve({
   port: appConfig.port,
   hostname: appConfig.host,
+  idleTimeout: 60,
   fetch(req) {
     // Dashboard routes
     const dashRes = handleDashboardRequest(req);

@@ -52,12 +52,18 @@ export function handleDashboardRequest(req: Request): Response | null {
   // SSE log stream
   if (pathname === "/console/api/logs/stream" && req.method === "GET") {
     let controller: ReadableStreamDefaultController;
+    let heartbeat: ReturnType<typeof setInterval>;
     const stream = new ReadableStream({
       start(c) {
         controller = c;
         subscribeSSE(controller);
+        // Keep-alive ping every 30s to prevent idle timeout
+        heartbeat = setInterval(() => {
+          try { controller.enqueue(new TextEncoder().encode(":ping\n\n")); } catch { clearInterval(heartbeat); }
+        }, 30_000);
       },
       cancel() {
+        clearInterval(heartbeat);
         unsubscribeSSE(controller);
       },
     });
