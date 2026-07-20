@@ -43,7 +43,9 @@ async function processDispatchJob(job: Job<DispatchJobData>) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(credential ? { authorization: `Bearer ${credential}` } : {}),
+        ...(credential
+          ? { [adapter.credentialHeader]: adapter.credentialScheme ? `${adapter.credentialScheme} ${credential}` : credential }
+          : {}),
       },
       body: JSON.stringify(envelope),
       signal: controller.signal,

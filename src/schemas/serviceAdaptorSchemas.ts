@@ -33,6 +33,11 @@ export const ServiceAdapterSchema = z.object({
   // never the credential itself. Resolved at boot, not stored here.
   credentialKey: z.string(),
 
+  // Header name + scheme for the credential. Defaults to "Authorization: Bearer <value>".
+  // Set to a custom header name (e.g. "X-Blnk-Key") for services that don't use Bearer auth.
+  credentialHeader: z.string().default("Authorization"),
+  credentialScheme: z.string().default("Bearer"),
+
   // One or more event types this adapter cares about. An adapter needing several
   // topics gets one entry with several topics, not several entries.
   topics: z.array(z.string()).min(1),

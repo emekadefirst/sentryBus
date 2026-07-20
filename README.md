@@ -254,6 +254,8 @@ protocol = "http"
 baseUrl = "https://ledger.internal.example.com"
 timeoutMs = 8000
 credentialKey = "BLNK_API_KEY"
+credentialHeader = "X-Blnk-Key"
+credentialScheme = ""
 topics = ["shipment.delivered", "invoice.due"]
 envelopeVersion = "1.0"
 webhookRoute = "/webhooks/blnk"
@@ -285,6 +287,8 @@ cooldownMs = 45000
 | `baseUrl` | string (URL) | ✓ | Target service base URL |
 | `timeoutMs` | number | ✓ | Request timeout in milliseconds |
 | `credentialKey` | string | ✓ | Env var name holding the credential |
+| `credentialHeader` | string | — | HTTP header name for the credential (default: `"Authorization"`) |
+| `credentialScheme` | string | — | Scheme prefix (default: `"Bearer"`, set to `""` for raw value headers) |
 | `topics` | string[] | ✓ | Event types this adapter subscribes to |
 | `envelopeVersion` | string | ✓ | Envelope schema version this adapter expects |
 | `webhookRoute` | string | — | Inbound webhook path (bidirectional adapters) |
@@ -406,6 +410,8 @@ SentryBus ships with a built-in web dashboard at `/console`. No auth, no setup �
 ```
 http://localhost:8085/console
 ```
+
+![SentryBus Dashboard](public/image.png)
 
 **Features:**
 

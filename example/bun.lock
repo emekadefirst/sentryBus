@@ -10,7 +10,7 @@
         "drizzle-orm": "^0.45.2",
         "elysia": "^1.4.29",
         "postgres": "^3.4.9",
-        "sentrybus": "^1.4.1",
+        "sentrybus": "^1.5.0",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -191,7 +191,7 @@
 
     "semver": ["semver@7.8.5", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
 
-    "sentrybus": ["sentrybus@1.4.1", "", { "dependencies": { "bullmq": "^5.80.9", "ioredis": "^5.11.1", "zod": "^4.4.3" }, "bin": { "sentrybus": "dist/index.js" } }, "sha512-2gZyGeJ56tHCTTMj+CbuFjlb6fRbvbR8++aWbAM4vuxm4nc2EtKcV/H41YWJWQsiYOlFj+294VspdvqvOAGbvA=="],
+    "sentrybus": ["sentrybus@1.5.0", "", { "dependencies": { "bullmq": "^5.80.9", "ioredis": "^5.11.1", "zod": "^4.4.3" }, "bin": { "sentrybus": "dist/index.js" } }, "sha512-rdPQ1cE5zvtnEwB+vbNVp2NtQrrn6bxTOZx5DeANK7qs3yAfNxfkIlVVfNgI+i4aJ/WY96UaV6F47vxhJ8z32A=="],
 
     "source-map": ["source-map@0.6.1", "", {}, "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="],
 

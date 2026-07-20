@@ -1,9 +1,11 @@
 name = "blnk-ledger"
 enabled = true
 protocol = "http"
-baseUrl = "http://localhost:5001"
+baseUrl = "http://localhost:5001/transactions"
 timeoutMs = 8000
-credentialKey = "your-custom-master-key-here"
+credentialKey = "BLNK_API_KEY"
+credentialHeader = "X-Blnk-Key"
+credentialScheme = ""
 topics = ["shipment.delivered", "invoice.due", "payment.initiated", "payment.confirmed"]
 envelopeVersion = "1.0"
 
