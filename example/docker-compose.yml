@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  # Shared Redis — used by both SentryBus and Blnk
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: >
+      redis-server
+      --requirepass supersecretpassword
+      --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "supersecretpassword", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Blnk's own Postgres (separate from your app's Supabase DB)
+  blnk-postgres:
+    image: postgres:16-alpine
+    container_name: blnk-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: blnk
+    ports:
+      - "5433:5432"
+    volumes:
+      - blnk_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Typesense — required by Blnk for search
+  typesense:
+    image: typesense/typesense:0.25.2
+    container_name: typesense
+    environment:
+      TYPESENSE_API_KEY: blnk-typesense-key
+      TYPESENSE_DATA_DIR: /data
+    ports:
+      - "8108:8108"
+    volumes:
+      - typesense_data:/data
+
+  # Blnk Ledger
+  blnk:
+    image: jerryenebeli/blnk:latest
+    container_name: blnk
+    ports:
+      - "5001:5001"
+    depends_on:
+      redis:
+        condition: service_healthy
+      blnk-postgres:
+        condition: service_healthy
+      typesense:
+        condition: service_started
+    volumes:
+      - ./blnk.json:/blnk.json
+    environment:
+      - BLNK_CONFIG_FILE=/blnk.json
+
+volumes:
+  redis_data:
+  blnk_pg_data:
+  typesense_data:

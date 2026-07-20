@@ -7,6 +7,12 @@ export const productHandler = new Elysia({ prefix: "/products" })
   .get("/", async ({ query }) => {
     const filters = productFilterSchema.parse(query);
     return productRepository.findAll(filters);
+  }, {
+    query: t.Object({
+      page: t.Optional(t.String()),
+      limit: t.Optional(t.String()),
+      search: t.Optional(t.String()),
+    }),
   })
 
   // GET /products/:id
@@ -17,6 +23,10 @@ export const productHandler = new Elysia({ prefix: "/products" })
       return { error: "Product not found" };
     }
     return product;
+  }, {
+    params: t.Object({
+      id: t.String({ format: "uuid" }),
+    }),
   })
 
   // POST /products
@@ -24,6 +34,11 @@ export const productHandler = new Elysia({ prefix: "/products" })
     const data = createProductSchema.parse(body);
     set.status = 201;
     return productRepository.create(data);
+  }, {
+    body: t.Object({
+      title: t.String({ minLength: 1, maxLength: 255 }),
+      price: t.String({ pattern: "^\\d+(\\.\\d{1,2})?$" }),
+    }),
   })
 
   // PUT /products/:id
@@ -35,6 +50,14 @@ export const productHandler = new Elysia({ prefix: "/products" })
       return { error: "Product not found" };
     }
     return product;
+  }, {
+    params: t.Object({
+      id: t.String({ format: "uuid" }),
+    }),
+    body: t.Object({
+      title: t.Optional(t.String({ minLength: 1, maxLength: 255 })),
+      price: t.Optional(t.String({ pattern: "^\\d+(\\.\\d{1,2})?$" })),
+    }),
   })
 
   // DELETE /products/:id
@@ -45,4 +68,8 @@ export const productHandler = new Elysia({ prefix: "/products" })
       return { error: "Product not found" };
     }
     set.status = 204;
+  }, {
+    params: t.Object({
+      id: t.String({ format: "uuid" }),
+    }),
   });

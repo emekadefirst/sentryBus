@@ -1,16 +1,16 @@
 name = "blnk-ledger"
 enabled = true
 protocol = "http"
-baseUrl = "https://ledger.internal.example.com"
+baseUrl = "http://localhost:5001"
 timeoutMs = 8000
-credentialKey = "BLNK_API_KEY"
-topics = ["shipment.delivered", "invoice.due"]
+credentialKey = "your-custom-master-key-here"
+topics = ["shipment.delivered", "invoice.due", "payment.initiated", "payment.confirmed"]
 envelopeVersion = "1.0"
 
-# Blnk calls back with async transaction-state changes, so this adapter is
-# bidirectional — the webhook fields are required here (unlike outbound-only Zoho).
-webhookRoute = "/webhooks/blnk"
-webhookSecret = "BLNK_WEBHOOK_SIGNING_SECRET"
+# # Blnk calls back with async transaction-state changes, so this adapter is
+# # bidirectional — the webhook fields are required here (unlike outbound-only Zoho).
+# webhookRoute = "/webhooks/blnk"
+# webhookSecret = "BLNK_WEBHOOK_SIGNING_SECRET"
 
 [rateLimit]
 burst = 10

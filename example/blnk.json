@@ -1,0 +1,17 @@
+{
+  "project_name": "TestingBlank",
+  "data_source": {
+    "dns": "postgres://postgres:password@blnk-postgres:5432/blnk?sslmode=disable"
+  },
+  "redis": {
+    "dns": "redis://:supersecretpassword@redis:6379/0"
+  },
+  "typesense": {
+    "dns": "http://typesense:8108"
+  },
+  "server": {
+    "port": "5001",
+    "secure": true,
+    "secret_key": "your-custom-master-key-here"
+  }
+}

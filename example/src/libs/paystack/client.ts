@@ -10,22 +10,20 @@ export class PaystackClient {
         this.client = new FetchClient(paysatckConfig.url as string, {
             headers: {
                 "Authorization": `Bearer ${paysatckConfig.secretKey}`,
-                "Content-type": "application/json"
+                "Content-Type": "application/json"
             },
         });
     }
 
     async inipayment(data: Payload): Promise<Response> {
         try {
-            const response = await this.client.post("/transaction/initialize", {
-                body: JSON.stringify(data)
-            });
+            const response = await this.client.post("/transaction/initialize", data);
             if (!response.ok) {
                 return { message: response.data?.message ?? "Payment initialization failed" };
             }
             return {
-                url: response.data.authorization_url,
-                reference: response.data.reference
+                url: response.data.data.authorization_url,
+                reference: response.data.data.reference
             };
 
         } catch (error) {

@@ -25,7 +25,7 @@ export async function routeEnvelope(envelope: Envelope): Promise<number> {
         adapter.name,
         { envelope, adapterName: adapter.name },
         {
-          jobId: `${envelope.id}:${adapter.name}`,
+          jobId: `${envelope.id}_${adapter.name}`,
           attempts: adapter.retry.maxAttempts,
           backoff: { type: "custom" },
         }

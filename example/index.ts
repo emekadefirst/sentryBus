@@ -9,6 +9,6 @@ const app = new Elysia()
   .use(productHandler)
   .use(orderHandler)
   .use(paymentHandler)
-  .listen(3000);
+  .listen(3005);
 
 console.log(`Server running at http://localhost:${app.server?.port}`);
