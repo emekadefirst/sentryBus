@@ -1,3 +1,5 @@
+![SentryBus Dashboard](public/image.png)
+
 # SentryBus
 
 A general-purpose integration/service bus. Organizations plug their services in via config, dispatch events to the bus, and it routes each event to the right adapter — queuing and retrying automatically when the target service is down.
