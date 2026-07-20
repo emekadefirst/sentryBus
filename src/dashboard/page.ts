@@ -173,7 +173,7 @@ function renderAdapterList(nodes) {
         '<div class="adapter-name"><span class="status-dot '+cbState+'"></span>'+n.name+'</div>' +
         '<div class="adapter-meta">'+n.protocol+' · '+n.baseUrl+' · topics: '+n.topics.join(', ')+'</div>' +
       '</div>' +
-      '<button class="toggle-btn '+enabledClass+'" onclick="toggle(\''+n.name+'\')">'+( n.enabled ? 'Enabled' : 'Disabled')+'</button>' +
+      '<button class="toggle-btn '+enabledClass+'" onclick="toggle(&quot;'+n.name+'&quot;)">'+( n.enabled ? 'Enabled' : 'Disabled')+'</button>' +
     '</div>';
   }).join('');
 }
@@ -222,6 +222,8 @@ function appendLog(entry, el) {
 }
 
 // ─── Init ───────────────────────────────────────────────────────────
+document.getElementById('topology-canvas').textContent = 'Loading...';
+document.getElementById('log-list').textContent = 'Loading...';
 loadTopology().catch(e => {
   console.error('topology load failed:', e);
   document.getElementById('topology-canvas').textContent = 'Failed to load topology: ' + e.message;
