@@ -91,27 +91,35 @@ const API = '/console/api';
 
 // ─── Topology Graph (SVG) ───────────────────────────────────────────
 async function loadTopology() {
-  const res = await fetch(API + '/topology');
-  const {nodes, edges} = await res.json();
-  renderGraph(nodes, edges);
-  renderAdapterList(nodes);
+  try {
+    const res = await fetch(API + '/topology');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const {nodes, edges} = await res.json();
+    renderGraph(nodes, edges);
+    renderAdapterList(nodes);
+  } catch(e) {
+    console.error('loadTopology error:', e);
+    document.getElementById('topology-canvas').innerHTML = '<p style="color:#EF4444">Error: '+e.message+'</p>';
+  }
 }
 
 function renderGraph(nodes, edges) {
   const topics = [...new Set(edges.map(e => e.from))];
-  const allNodes = [
-    {id: '__bus__', label: 'SentryBus', type: 'bus'},
-    ...topics.map(t => ({id: 'topic:'+t, label: t, type: 'topic'})),
-    ...nodes.map(n => ({id: 'adapter:'+n.name, label: n.name, type: 'adapter', data: n}))
-  ];
 
-  // Layout: bus at top, topics middle, adapters bottom
-  const W = 700, padX = 60, busY = 40, topicY = 140, adapterY = 250;
-  const nodeW = 120, nodeH = 36;
+  // Dynamic width based on node count
+  const nodeW = 140, nodeH = 36, padX = 40, gap = 20;
+  const maxCols = Math.max(topics.length, nodes.length, 1);
+  const W = Math.max(600, maxCols * (nodeW + gap) + padX * 2);
+  const busY = 40, topicY = 130, adapterY = 240, H = 300;
 
-  function xPos(i, count) { return padX + (W - 2*padX) * (count === 1 ? 0.5 : i/(count-1)) - nodeW/2; }
+  function xPos(i, count) {
+    if (count === 1) return W/2 - nodeW/2;
+    const totalWidth = count * nodeW + (count-1) * gap;
+    const startX = (W - totalWidth) / 2;
+    return startX + i * (nodeW + gap);
+  }
 
-  let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' 320">';
+  let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'">';
   svg += '<defs><linearGradient id="gg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#6366F1"/></linearGradient></defs>';
 
   // Bus node
@@ -125,7 +133,8 @@ function renderGraph(nodes, edges) {
     const x = xPos(i, topics.length);
     topicPositions[t] = {x: x+nodeW/2, y: topicY+nodeH/2};
     svg += '<g class="node"><rect x="'+x+'" y="'+topicY+'" width="'+nodeW+'" height="'+nodeH+'" fill="#0F172A" stroke="#38BDF8" stroke-width="1.5" rx="8"/>';
-    svg += '<text x="'+(x+nodeW/2)+'" y="'+(topicY+22)+'" text-anchor="middle" fill="#38BDF8" font-size="11" font-family="monospace">'+t+'</text></g>';
+    const label = t.length > 16 ? t.slice(0,14)+'..' : t;
+    svg += '<text x="'+(x+nodeW/2)+'" y="'+(topicY+22)+'" text-anchor="middle" fill="#38BDF8" font-size="10" font-family="monospace">'+label+'</text></g>';
     // Edge: bus → topic
     svg += '<line x1="'+(W/2)+'" y1="'+(busY+nodeH)+'" x2="'+(x+nodeW/2)+'" y2="'+topicY+'" stroke="#334155" stroke-width="1.5" stroke-dasharray="4 3"/>';
   });
@@ -176,19 +185,25 @@ async function toggle(name) {
 
 // ─── Live Logs (SSE) ────────────────────────────────────────────────
 async function loadLogs() {
-  const res = await fetch(API+'/logs');
-  const logs = await res.json();
-  const el = document.getElementById('log-list');
-  logs.forEach(entry => appendLog(entry, el));
-  el.scrollTop = el.scrollHeight;
-
-  // SSE stream
-  const evtSource = new EventSource(API+'/logs/stream');
-  evtSource.onmessage = (e) => {
-    const entry = JSON.parse(e.data);
-    appendLog(entry, el);
+  try {
+    const res = await fetch(API+'/logs');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const logs = await res.json();
+    const el = document.getElementById('log-list');
+    logs.forEach(entry => appendLog(entry, el));
     el.scrollTop = el.scrollHeight;
-  };
+
+    // SSE stream
+    const evtSource = new EventSource(API+'/logs/stream');
+    evtSource.onmessage = (e) => {
+      const entry = JSON.parse(e.data);
+      appendLog(entry, el);
+      el.scrollTop = el.scrollHeight;
+    };
+  } catch(e) {
+    console.error('loadLogs error:', e);
+    document.getElementById('log-list').innerHTML = '<p style="color:#EF4444">Error: '+e.message+'</p>';
+  }
 }
 
 function appendLog(entry, el) {
@@ -207,10 +222,16 @@ function appendLog(entry, el) {
 }
 
 // ─── Init ───────────────────────────────────────────────────────────
-loadTopology();
-loadLogs();
+loadTopology().catch(e => {
+  console.error('topology load failed:', e);
+  document.getElementById('topology-canvas').textContent = 'Failed to load topology: ' + e.message;
+});
+loadLogs().catch(e => {
+  console.error('logs load failed:', e);
+  document.getElementById('log-list').textContent = 'Failed to load logs: ' + e.message;
+});
 // Refresh topology every 10s to catch breaker state changes
-setInterval(loadTopology, 10000);
+setInterval(() => loadTopology().catch(console.error), 10000);
 </script>
 </body>
 </html>`;
