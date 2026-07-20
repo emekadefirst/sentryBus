@@ -21,6 +21,15 @@ function getBreaker(name: string): Breaker {
   return b;
 }
 
+/** Expose breaker states for the dashboard. */
+export function getAllBreakerStates(): Record<string, { state: BreakerState; failures: number }> {
+  const out: Record<string, { state: BreakerState; failures: number }> = {};
+  for (const [name, b] of breakers) {
+    out[name] = { state: b.state, failures: b.failures };
+  }
+  return out;
+}
+
 // Call before attempting dispatch. False means don't touch the network at
 // all — let the job fail fast and retry later on its own schedule.
 export function allowDispatch(adapterName: string, cooldownMs: number): boolean {

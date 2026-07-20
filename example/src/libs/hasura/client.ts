@@ -20,7 +20,7 @@ export class HasuraClient {
    * Execute a GraphQL query/mutation against Hasura
    */
   async query<T = any>(gql: string, variables: Record<string, any> = {}): Promise<T> {
-    const response = await this.client.post("/v1/graphql", {
+    const response = await this.client.post("", {
       body: { query: gql, variables },
     });
 
@@ -61,9 +61,9 @@ export class HasuraClient {
    */
   subscribeAndForward(config: HasuraSubscriptionConfig): WebSocket {
     const wsUrl = hasuraConfig.url
-      .replace("http://", "ws://")
       .replace("https://", "wss://")
-      + "/v1/graphql";
+      .replace("http://", "ws://")
+      .replace("/v1/graphql", "/v1/graphql");
 
     const ws = new WebSocket(wsUrl, "graphql-ws");
 

@@ -5,6 +5,7 @@ import { injest } from "./core/injest";
 import { loadAdapters } from "./core/adapters";
 import { startDispatchWorker } from "./core/dispatcher";
 import { compose, withErrorBoundary, withRequestLog } from "./middleware";
+import { handleDashboardRequest } from "./dashboard";
 import { printBanner } from "./utils/banner";
 
 // Load env.config.toml first — everything else reads from it.
@@ -20,6 +21,10 @@ const server = Bun.serve({
   port: appConfig.port,
   hostname: appConfig.host,
   fetch(req) {
+    // Dashboard routes
+    const dashRes = handleDashboardRequest(req);
+    if (dashRes) return dashRes;
+
     const { pathname } = new URL(req.url);
     if (pathname === "/health") {
       return Response.json({ status: "ok" });

@@ -11,7 +11,7 @@ let adapters: ServiceAdapter[] = [];
 export async function loadAdapters(dir = "bus"): Promise<ServiceAdapter[]> {
   const files = await loadConfigFiles(dir);
   const raw = await Promise.all(files.map((f) => readConfigFile(f)));
-  adapters = loadServiceAdapters(raw).filter((a) => a.enabled);
+  adapters = loadServiceAdapters(raw);
   logger.info("adapters loaded", {
     count: adapters.length,
     names: adapters.map((a) => a.name),
@@ -20,9 +20,23 @@ export async function loadAdapters(dir = "bus"): Promise<ServiceAdapter[]> {
 }
 
 export function adaptersForTopic(topic: string): ServiceAdapter[] {
-  return adapters.filter((a) => a.topics.includes(topic));
+  return adapters.filter((a) => a.enabled && a.topics.includes(topic));
 }
 
 export function getAdapter(name: string): ServiceAdapter | undefined {
-  return adapters.find((a) => a.name === name);
+  return adapters.find((a) => a.name === name && a.enabled);
+}
+
+/** Get all adapters including disabled — for the dashboard. */
+export function getAllAdapters(): ServiceAdapter[] {
+  return adapters;
+}
+
+/** Toggle adapter enabled state at runtime. Returns new state. */
+export function toggleAdapter(name: string): boolean | null {
+  const adapter = adapters.find((a) => a.name === name);
+  if (!adapter) return null;
+  adapter.enabled = !adapter.enabled;
+  logger.info("adapter toggled", { name, enabled: adapter.enabled });
+  return adapter.enabled;
 }

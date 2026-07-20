@@ -34,4 +34,5 @@ export const paysatckConfig = {
 export const hasuraConfig = {
   url: requireEnv("HASURA_URL"),
   adminSecret: requireEnv("HASURA_ADMIN_SECRET"),
+  cloudIp: requireEnv("HASURA_CLOUD_IP"),
 };
