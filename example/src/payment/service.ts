@@ -29,21 +29,28 @@ export class PaymentService {
     }
 
     const email = order.customerContact;
-    const amount = Math.round(parseFloat(order.total) * 100); // Paystack expects amount in kobo as integer
-
-    console.log(`[Payment] Initiating: email=${email}, amount=${amount}, total=${order.total}`);
+    const amount = Math.round(parseFloat(order.total) * 100); // Paystack expects amount in kobo
 
     const result = await paystack.inipayment({ email, amount });
 
-    // Publish payment.initiated to SentryBus → Blnk
+    // Publish payment.initiated to SentryBus → Blnk (shape matches Blnk's /transactions body)
     if (result.reference) {
       await publishToBus("payment.initiated", {
-        orderId,
-        email,
-        amount,
+        precise_amount: amount,
         reference: result.reference,
-        customerName: order.customerName,
-        status: "pending",
+        currency: "NGN",
+        precision: 100,
+        source: "@FundingPool",
+        destination: `@Order-${orderId}`,
+        description: `Payment initiated for order ${orderId}`,
+        allow_overdraft: true,
+        meta_data: {
+          orderId,
+          email,
+          customerName: order.customerName,
+          status: "pending",
+          event: "payment.initiated",
+        },
       });
     }
 
@@ -51,11 +58,26 @@ export class PaymentService {
   }
 
   async handleWebhook(event: string, reference: string, rawPayload: Record<string, any>) {
+    const amount = rawPayload.amount ?? 0;
+    const orderId = rawPayload.metadata?.orderId ?? reference;
+
     await publishToBus("payment.confirmed", {
-      event,
-      reference,
-      status: "success",
-      ...rawPayload,
+      precise_amount: amount,
+      reference: `${reference}-confirmed`,
+      currency: rawPayload.currency ?? "NGN",
+      precision: 100,
+      source: `@Order-${orderId}`,
+      destination: "@RevenuePool",
+      description: `Payment confirmed for reference ${reference}`,
+      allow_overdraft: true,
+      meta_data: {
+        event,
+        reference,
+        status: "success",
+        gateway_response: rawPayload.gateway_response,
+        paid_at: rawPayload.paid_at,
+        customer: rawPayload.customer,
+      },
     });
   }
 }

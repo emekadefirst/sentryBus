@@ -9,6 +9,7 @@
   "typesense": {
     "dns": "http://typesense:8108"
   },
+  "type_sense_key": "blnk-api-key",
   "server": {
     "port": "5001",
     "secure": true,

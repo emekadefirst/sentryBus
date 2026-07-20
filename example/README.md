@@ -1,181 +1,217 @@
 # SentryBus Example — Hasura + Paystack + Blnk Integration
 
-An example application demonstrating how to use [SentryBus](https://www.npmjs.com/package/sentrybus) as an integration bus between Hasura (real-time data layer), Paystack (payments), and Blnk (ledger) services.
+An example application demonstrating how to use [SentryBus](https://www.npmjs.com/package/sentrybus) as an integration bus between Hasura (real-time data layer), Paystack (payments), and Blnk (ledger).
 
 ## Architecture
 
 ```
 ┌──────────────┐         ┌──────────────┐         ┌──────────────────┐
-│  Paystack    │────────▶│  Elysia API  │────────▶│  PostgreSQL      │
-│  (payments)  │ webhook │  (:3000)     │  drizzle│  (orders, etc.)  │
+│  Paystack    │────────▶│  Elysia API  │────────▶│  Supabase        │
+│  (payments)  │ webhook │  (:3005)     │  drizzle│  PostgreSQL      │
 └──────────────┘         └──────┬───────┘         └────────┬─────────┘
                                 │                          │
                                 │ publish                  │ subscription
                                 ▼                          ▼
                       ┌──────────────────┐        ┌──────────────┐
-                      │  SentryBus       │◀───────│  Hasura      │
+                      │  SentryBus       │◀───────│  Hasura Cloud│
                       │  (:8085)         │  event │  (GraphQL)   │
                       └────────┬─────────┘        └──────────────┘
                                │
-                    ┌──────────┼──────────┐
-                    ▼                     ▼
-          ┌──────────────┐      ┌──────────────┐
-          │  Blnk Ledger │      │  Zoho CRM    │
-          └──────────────┘      └──────────────┘
+                               ▼
+                      ┌──────────────┐
+                      │  Blnk Ledger │
+                      │  (:5001)     │
+                      └──────────────┘
 ```
+
+## Stack
+
+- **Runtime** — [Bun](https://bun.sh)
+- **API Framework** — [Elysia](https://elysiajs.com)
+- **ORM** — [Drizzle ORM](https://orm.drizzle.team) (PostgreSQL)
+- **Validation** — [Zod](https://zod.dev) + Elysia TypeBox
+- **Integration Bus** — [SentryBus](https://www.npmjs.com/package/sentrybus)
+- **Database** — Supabase PostgreSQL (via pooler connection)
+- **Real-time GraphQL** — Hasura Cloud
+- **Ledger** — [Blnk](https://blnkfinance.com) (self-hosted via Docker)
+- **Queue** — Redis + BullMQ (via SentryBus)
 
 ## Prerequisites
 
-Before running this project, ensure you have the following installed:
-
-1. **Bun** (v1.0+) — JavaScript runtime
+1. **Bun** (v1.0+)
    ```bash
-   # Install Bun (Windows via PowerShell)
+   # Windows PowerShell
    powershell -c "irm bun.sh/install.ps1 | iex"
    ```
 
-2. **PostgreSQL** (v14+) — Application database
-   ```bash
-   # Via Docker
-   docker run -d --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=user -e POSTGRES_DB=exampledb postgres:16-alpine
-   ```
+2. **Docker + Docker Compose** — for running Redis, Blnk, Blnk's Postgres, and Typesense
 
-3. **Redis** (v6+) — Required by SentryBus for job queuing
-   ```bash
-   # Via Docker
-   docker run -d --name redis -p 6379:6379 redis:7-alpine --requirepass supersecretpassword
-   ```
+3. **Supabase account** — for the app database (or any hosted Postgres)
 
-4. **Hasura** (v2+) — Real-time GraphQL engine (connects to the same PostgreSQL)
-   ```bash
-   # Via Docker
-   docker run -d --name hasura -p 8080:8080 \
-     -e HASURA_GRAPHQL_DATABASE_URL=postgresql://postgres:user@host.docker.internal:5432/exampledb \
-     -e HASURA_GRAPHQL_ADMIN_SECRET=your-hasura-admin-secret \
-     -e HASURA_GRAPHQL_ENABLE_CONSOLE=true \
-     hasura/graphql-engine:v2.40.0
-   ```
+4. **Hasura Cloud account** — for GraphQL subscriptions on your data
+
+5. **Paystack test account** — for the secret key
 
 ## Installation
 
 ```bash
-# Clone and enter the project
+# From the project root
 cd example
-
-# Install dependencies
 bun install
 ```
 
 ## Configuration
 
-### 1. Environment Variables
-
-Copy the sample and fill in your values:
+### 1. Environment variables
 
 ```bash
 cp .env.sample .env
 ```
 
-Edit `.env` with your actual credentials:
+Fill in `.env` with your actual credentials:
 
 ```env
-# Database
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=user
-DB_NAME=exampledb
-DB_HOST=localhost
+# Supabase Postgres (use the pooler connection for IPv4 compatibility)
+DB_PORT=6543
+DB_USER=postgres.YOUR_PROJECT_ID
+DB_PASSWORD=YOUR_SUPABASE_PASSWORD
+DB_NAME=postgres
+DB_HOST=aws-0-eu-central-1.pooler.supabase.com
 
-# SentryBus
+# SentryBus (used by your app to publish events)
 PORT=8085
 HOST=localhost
 URL=http://localhost:8085
 
-# Redis
+# Redis (shared between SentryBus and Blnk)
 REDIS_USERNAME=default
 REDIS_PASSWORD=supersecretpassword
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
 # Blnk Ledger
-BLNK_BASE_URL=https://your-blnk-instance.com
-BLNK_API_KEY=your-blnk-api-key
+BLNK_BASE_URL=http://localhost:5001
+BLNK_API_KEY=your-custom-master-key-here
 BLNK_WEBHOOK_SIGNING_SECRET=your-blnk-webhook-secret
 
-# Zoho CRM
+# Zoho CRM (optional)
 ZOHO_CRM_BASE_URL=https://www.zohoapis.com/crm/v6
-ZOHO_CRM_TOKEN=your-zoho-token
-
-# Hasura
-HASURA_URL=http://localhost:8080
-HASURA_ADMIN_SECRET=your-hasura-admin-secret
+ZOHO_CRM_TOKEN=your-zoho-crm-token
 
 # Paystack
 PAYSATCK_SECRET_KEY=sk_test_xxxxx
 PAYSATCK_URL=https://api.paystack.co
+
+# Hasura Cloud
+HASURA_URL=https://your-project.hasura.app/v1/graphql
+HASURA_ADMIN_SECRET=your-hasura-admin-secret
 ```
 
-### 2. SentryBus Adapter Configs
+### 2. SentryBus adapter configs
 
-Adapter configs live in `bus/`. They define which external services the bus routes events to. Edit the values in these files to match your setup:
+The `bus/` directory holds SentryBus's own configuration. Values must be inline (SentryBus reads them literally, no env interpolation):
 
-- `bus/env.config.toml` — Bus runtime settings (port, Redis)
-- `bus/blnk.config.toml` — Blnk ledger adapter
-- `bus/zoho-crm.config.toml` — Zoho CRM adapter
+- `bus/env.config.toml` — Bus runtime (port, Redis credentials)
+- `bus/blnk.config.toml` — Blnk adapter (baseUrl, credential, topics, retry policy)
+- `bus/zoho-crm.config.toml` — Zoho adapter
+
+**Note on `credentialKey`:** SentryBus treats this as the actual credential value (inline), not an env var name.
+
+### 3. Blnk config
+
+`blnk.json` at the project root configures the Blnk ledger service. Redis, Postgres, and Typesense hostnames use Docker service names.
 
 ## Running the Project
 
-### Step 1: Start Redis
+Order matters — services depend on each other.
 
-Make sure Redis is running on port 6379.
+### Step 1: Start the Docker stack
 
 ```bash
-docker start redis
+docker compose up -d
 ```
 
-### Step 2: Run Database Migrations
+This starts:
+- **Redis** on `localhost:6379` (shared by SentryBus and Blnk)
+- **Blnk Postgres** on `localhost:5433`
+- **Typesense** on `localhost:8108`
+- **Blnk** on `localhost:5001`
 
-Generate and apply the schema to PostgreSQL:
+Verify all containers are running:
+```bash
+docker compose ps
+```
+
+### Step 2: Run Blnk migrations (first-time setup only)
+
+Blnk doesn't auto-migrate on startup. Run this once after the first `docker compose up`:
+
+```bash
+docker exec blnk blnk migrate up
+```
+
+You should see `Applied 37 migrations!`. Then restart Blnk to clear any pre-migration error loops:
+
+```bash
+docker compose restart blnk
+```
+
+### Step 3: Run your app database migrations
 
 ```bash
 # Generate migration files from Drizzle schema
 bun run makemigrations
 
-# Apply migrations
+# Apply migrations to Supabase
 bun run migrate
 ```
 
-### Step 3: Start Hasura
+### Step 4: Track tables in Hasura
 
-Ensure Hasura is running and tracking your tables. Open the Hasura Console at `http://localhost:8080/console` and track the `products`, `orders`, and `order_items` tables.
+Log into your Hasura Cloud console → Data tab → your database → `public` schema. Click **Track All** for the untracked tables (`products`, `orders`, `order_items`).
 
-### Step 4: Start SentryBus
+### Step 5: Start SentryBus
 
 ```bash
 bunx sentrybus
 ```
 
-You should see:
-
+You should see the ASCII banner and:
 ```
-  Services in bus:
-  ────────────────────────────────────────
-  blnk-ledger  ● enabled
-    → shipment.delivered, invoice.due
-  zoho-crm  ● enabled
-    → driver.onboarded, company.account.updated
-  ────────────────────────────────────────
-   🚀 LISTENING  http://localhost:8085
+Services in bus:
+────────────────────────────────────────
+blnk-ledger  ● enabled
+  → shipment.delivered, invoice.due, payment.initiated, payment.confirmed
+zoho-crm  ● enabled
+  → driver.onboarded, company.account.updated
+────────────────────────────────────────
+🚀 LISTENING  http://localhost:8085
 [Redis] connected
 ```
 
-### Step 5: Start the API Server
+### Step 6: Start the API server
+
+In a new terminal:
 
 ```bash
 bun run dev
 ```
 
-The API runs on `http://localhost:3000` with Swagger docs at `http://localhost:3000/docs`.
+The API runs on `http://localhost:3005` with Swagger docs at `http://localhost:3005/docs`.
+
+## Payment Flow
+
+1. **Client → POST /orders** with items and customer details
+2. **Your API** creates the order in Supabase via Drizzle
+3. **Your API** calls Paystack to initialize the payment
+4. **Your API** publishes `payment.initiated` to SentryBus
+5. **SentryBus** routes the event to Blnk, creating a ledger entry for the pending payment
+6. **API returns** `{ order, payment: { url, reference } }` — client redirects to Paystack
+7. **Paystack** processes payment, sends webhook to `/payments/webhook`
+8. **Your API** verifies the signature, publishes `payment.confirmed` to SentryBus
+9. **SentryBus** routes to Blnk, creating a ledger entry for the confirmed payment
+
+Full audit trail in Blnk: both pending and confirmed payments recorded as ledger transactions.
 
 ## API Endpoints
 
@@ -183,69 +219,79 @@ The API runs on `http://localhost:3000` with Swagger docs at `http://localhost:3
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/products` | List products (paginated, searchable) |
-| GET | `/products/:id` | Get product by ID |
-| POST | `/products` | Create a product |
-| PUT | `/products/:id` | Update a product |
-| DELETE | `/products/:id` | Delete a product |
+| GET | `/products` | List (paginated, `?search=`) |
+| GET | `/products/:id` | Get by ID |
+| POST | `/products` | Create |
+| PUT | `/products/:id` | Update |
+| DELETE | `/products/:id` | Delete |
 
 ### Orders
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/orders` | List orders (paginated, search, filter by status) |
-| GET | `/orders/:id` | Get order by ID (includes product details) |
-| POST | `/orders` | Create an order with items |
-| PUT | `/orders/:id` | Update order details/status |
-| DELETE | `/orders/:id` | Delete an order |
+| GET | `/orders` | List (paginated, `?search=`, `?status=`) |
+| GET | `/orders/:id` | Get by ID (includes product details) |
+| POST | `/orders` | Create order + initiate payment + publish to bus |
+| PUT | `/orders/:id` | Update |
+| DELETE | `/orders/:id` | Delete |
 
-### Query Parameters
+### Payments
 
-- `page` — Page number (default: 1)
-- `limit` — Items per page (default: 10, max: 100)
-- `search` — Search by title (products) or customer name/contact (orders)
-- `status` — Filter orders by status
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/payments/webhook` | Paystack webhook receiver (HMAC verified) |
 
-## How the Integration Works
+## Blnk API Access
 
-1. **Payment initiated** — Client calls Paystack via `PaystackClient.inipayment()`, gets a payment URL
-2. **Payment confirmed** — Paystack sends a webhook → `PaystackClient.wbHandler()` verifies the signature and extracts the reference
-3. **Order updated** — Your app updates the order status in PostgreSQL
-4. **Hasura detects change** — Hasura subscription fires via WebSocket
-5. **Event published** — `HasuraClient.subscribeAndForward()` catches the change and POSTs to SentryBus at `http://localhost:8085/publish`
-6. **SentryBus routes** — The bus matches the event topic to subscribed adapters and queues a job per adapter
-7. **Blnk receives** — The bus dispatches to Blnk's ledger API (with retry, circuit breaking, rate limiting)
+Query ledger transactions directly:
+
+```bash
+# List all transactions
+curl -H "X-Blnk-Key: your-custom-master-key-here" http://localhost:5001/transactions
+
+# Get a specific transaction by reference
+curl -H "X-Blnk-Key: your-custom-master-key-here" "http://localhost:5001/transactions/ref/YOUR_REFERENCE"
+
+# List balances
+curl -H "X-Blnk-Key: your-custom-master-key-here" http://localhost:5001/balances
+```
 
 ## Project Structure
 
 ```
 example/
-├── bus/                          # SentryBus adapter configs
-│   ├── env.config.toml           # Bus runtime (port, Redis)
-│   ├── blnk.config.toml          # Blnk ledger adapter
-│   └── zoho-crm.config.toml      # Zoho CRM adapter
+├── bus/                              # SentryBus adapter configs
+│   ├── env.config.toml               # Bus runtime (port, Redis)
+│   ├── blnk.config.toml              # Blnk adapter
+│   └── zoho-crm.config.toml          # Zoho adapter
 ├── src/
 │   ├── configs/
-│   │   └── env.ts                # Environment variable loading
+│   │   └── env.ts                    # Environment variable loading
 │   ├── data/
-│   │   ├── db.ts                 # Drizzle database connection
-│   │   ├── dto.ts                # Response DTOs
-│   │   ├── models.ts             # Drizzle table schemas
-│   │   └── schema.ts             # Zod validation schemas
+│   │   ├── db.ts                     # Drizzle DB connection
+│   │   ├── dto.ts                    # Response DTOs
+│   │   ├── models.ts                 # Drizzle table schemas
+│   │   └── schema.ts                 # Zod validation schemas
 │   ├── handlers/
-│   │   ├── order.handler.ts      # Order route handlers
-│   │   └── product.handler.ts    # Product route handlers
+│   │   ├── order.handler.ts          # Order routes
+│   │   └── product.handler.ts        # Product routes
 │   ├── libs/
-│   │   ├── hasura/               # Hasura GraphQL + subscription client
-│   │   ├── http/                 # Generic HTTP client (FetchClient)
-│   │   └── paystack/             # Paystack payment + webhook client
+│   │   ├── hasura/                   # Hasura GraphQL + subscription client
+│   │   ├── http/                     # Generic FetchClient
+│   │   └── paystack/                 # Paystack payment + webhook client
+│   ├── payment/
+│   │   ├── handler.ts                # Payment webhook route
+│   │   ├── service.ts                # Payment orchestration
+│   │   └── types.ts                  # Payment types
 │   ├── repos/
-│   │   ├── order.repository.ts   # Order data access layer
-│   │   └── product.repository.ts # Product data access layer
+│   │   ├── order.repository.ts       # Order data access
+│   │   └── product.repository.ts     # Product data access
 │   └── scripts/
-│       └── migrate.ts            # Database migration runner
-├── index.ts                      # App entrypoint (Elysia server)
-├── drizzle.config.ts             # Drizzle Kit configuration
+│       └── migrate.ts                # Drizzle migration runner
+├── blnk.json                         # Blnk ledger config
+├── docker-compose.yml                # Redis + Blnk stack
+├── drizzle.config.ts                 # Drizzle Kit config
+├── index.ts                          # App entrypoint (Elysia server)
 ├── package.json
 └── tsconfig.json
 ```
@@ -254,20 +300,27 @@ example/
 
 | Command | Description |
 |---------|-------------|
-| `bun run dev` | Start API server with hot reload |
-| `bun run build` | Build for production |
+| `bun run dev` | Start API with hot reload on `:3005` |
+| `bun run build` | Compile for production |
 | `bun run start` | Run production build |
-| `bunx sentrybus` | Start the SentryBus integration bus |
+| `bunx sentrybus` | Start the SentryBus integration bus on `:8085` |
 | `bun run makemigrations` | Generate Drizzle migration files |
-| `bun run migrate` | Apply migrations to database |
-| `bun run db:studio` | Open Drizzle Studio (database GUI) |
+| `bun run migrate` | Apply migrations to Supabase Postgres |
+| `bun run db:studio` | Open Drizzle Studio |
+| `docker compose up -d` | Start Redis + Blnk + Typesense + Blnk Postgres |
+| `docker compose down` | Stop the Docker stack |
+| `docker exec blnk blnk migrate up` | Run Blnk's own schema migrations |
 
-## Tech Stack
+## Troubleshooting
 
-- **Runtime** — [Bun](https://bun.sh)
-- **API Framework** — [Elysia](https://elysiajs.com)
-- **ORM** — [Drizzle ORM](https://orm.drizzle.team) (PostgreSQL)
-- **Validation** — [Zod](https://zod.dev)
-- **Integration Bus** — [SentryBus](https://www.npmjs.com/package/sentrybus)
-- **Database** — PostgreSQL
-- **Queue** — Redis + BullMQ (via SentryBus)
+**Blnk returns 401** — Check that `bus/blnk.config.toml`'s `credentialKey` matches the `server.secret_key` in `blnk.json`.
+
+**Blnk returns "relation blnk.transactions does not exist"** — Run `docker exec blnk blnk migrate up`.
+
+**Typesense 401 errors in Blnk logs** — Ensure `BLNK_TYPESENSE_KEY` env var in `docker-compose.yml` matches `TYPESENSE_API_KEY` on the Typesense service. Wipe the Typesense volume if the key was changed after first boot: `docker volume rm example_typesense_data`.
+
+**SentryBus "Custom Id cannot contain :"** — Don't include colons in `correlationId` when publishing.
+
+**Blnk returns 400 on transaction** — Your event payload doesn't match Blnk's expected `/transactions` schema. See `src/payment/service.ts` for the correct shape.
+
+**Supabase DNS resolution fails** — Use the pooler connection (port 6543) instead of direct connection (port 5432).
