@@ -28,5 +28,10 @@ export const databaseConfig = {
 export const paysatckConfig = {
   secretKey: requireEnv("PAYSATCK_SECRET_KEY"),
   url: requireEnv("PAYSATCK_URL"),
+};
 
+
+export const hasuraConfig = {
+  url: requireEnv("HASURA_URL"),
+  adminSecret: requireEnv("HASURA_ADMIN_SECRET"),
 };
