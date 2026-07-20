@@ -43,11 +43,15 @@ async function processDispatchJob(job: Job<DispatchJobData>) {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        // Bus metadata as headers — envelope stays internal, but tracing survives.
+        "x-sentrybus-envelope-id": envelope.id,
+        "x-sentrybus-event-type": envelope.type,
+        "x-sentrybus-correlation-id": envelope.correlationId,
         ...(credential
           ? { [adapter.credentialHeader]: adapter.credentialScheme ? `${adapter.credentialScheme} ${credential}` : credential }
           : {}),
       },
-      body: JSON.stringify(envelope),
+      body: JSON.stringify(envelope.payload),
       signal: controller.signal,
     });
 
