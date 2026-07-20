@@ -10,17 +10,17 @@ import { dashboardHTML } from "./page";
 export function handleDashboardRequest(req: Request): Response | null {
   const { pathname } = new URL(req.url);
 
-  if (!pathname.startsWith("/_bus")) return null;
+  if (!pathname.startsWith("/console")) return null;
 
   // Dashboard HTML
-  if (pathname === "/_bus" || pathname === "/_bus/") {
+  if (pathname === "/console" || pathname === "/console/") {
     return new Response(dashboardHTML(), {
       headers: { "content-type": "text/html; charset=utf-8" },
     });
   }
 
   // Topology API
-  if (pathname === "/_bus/api/topology" && req.method === "GET") {
+  if (pathname === "/console/api/topology" && req.method === "GET") {
     const adapters = getAllAdapters();
     const breakers = getAllBreakerStates();
 
@@ -45,12 +45,12 @@ export function handleDashboardRequest(req: Request): Response | null {
   }
 
   // Log buffer (initial load)
-  if (pathname === "/_bus/api/logs" && req.method === "GET") {
+  if (pathname === "/console/api/logs" && req.method === "GET") {
     return Response.json(getLogBuffer());
   }
 
   // SSE log stream
-  if (pathname === "/_bus/api/logs/stream" && req.method === "GET") {
+  if (pathname === "/console/api/logs/stream" && req.method === "GET") {
     let controller: ReadableStreamDefaultController;
     const stream = new ReadableStream({
       start(c) {
@@ -72,7 +72,7 @@ export function handleDashboardRequest(req: Request): Response | null {
   }
 
   // Toggle adapter
-  if (pathname.startsWith("/_bus/api/adapters/") && req.method === "POST") {
+  if (pathname.startsWith("/console/api/adapters/") && req.method === "POST") {
     const parts = pathname.split("/");
     // /_bus/api/adapters/:name/toggle
     if (parts[5] === "toggle") {

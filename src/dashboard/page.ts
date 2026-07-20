@@ -87,7 +87,7 @@ a{color:var(--cyan);text-decoration:none}
 </div>
 
 <script>
-const API = '/_bus/api';
+const API = '/console/api';
 
 // ─── Topology Graph (SVG) ───────────────────────────────────────────
 async function loadTopology() {

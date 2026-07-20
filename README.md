@@ -20,6 +20,7 @@ A general-purpose integration/service bus. Organizations plug their services in 
   - [Running the Bus](#running-the-bus)
   - [Publishing Events](#publishing-events)
   - [Health Check](#health-check)
+  - [Dashboard](#dashboard)
 - [Core Concepts](#core-concepts)
   - [Envelope](#envelope)
   - [Adapters](#adapters)
@@ -125,13 +126,16 @@ sentryBus/
 │   │   ├── redis.ts                # Redis connection (reads from env.config.toml)
 │   │   └── index.ts                # Barrel export
 │   ├── core/
-│   │   ├── adapters.ts             # Adapter registry (load, query by topic/name)
+│   │   ├── adapters.ts             # Adapter registry (load, query by topic/name, toggle)
 │   │   ├── circuitBreaker.ts       # Per-adapter in-process breaker
 │   │   ├── dispatcher.ts           # BullMQ Worker — outbound dispatch
 │   │   ├── envelop.ts              # Envelope schema + builder
 │   │   ├── injest.ts               # HTTP handler for POST /publish
 │   │   ├── middleares.ts           # Middleware: compose, logging, error boundary
 │   │   └── router.ts              # Fan-out: envelope → per-adapter BullMQ jobs
+│   ├── dashboard/
+│   │   ├── index.ts                # /console/* route handler
+│   │   └── page.ts                 # Self-contained HTML (inline CSS/JS, SVG topology)
 │   ├── libs/
 │   │   └── queue.ts                # BullMQ Queue + custom backoff strategy
 │   ├── middleware/
@@ -394,6 +398,31 @@ curl http://localhost:8085/health
 ```json
 { "status": "ok" }
 ```
+
+### Dashboard
+
+SentryBus ships with a built-in web dashboard at `/console`. No auth, no setup — just open it in your browser:
+
+```
+http://localhost:8085/console
+```
+
+**Features:**
+
+- **Topology graph** — Visual SVG map of how your services connect: bus → topics → adapters. Nodes are color-coded by circuit breaker state (green = closed, yellow = half-open, red = open). Disabled adapters appear faded.
+- **Adapter controls** — Enable/disable any adapter at runtime with a single click. No restart needed.
+- **Live logs** — Real-time structured log stream via Server-Sent Events. Shows dispatch successes, failures, circuit breaker trips, and dead-letters as they happen.
+- **Auto-refresh** — Topology re-fetches every 10 seconds to reflect breaker state changes.
+
+**Dashboard API endpoints** (used internally by the UI, but available for scripting):
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/console/` | GET | Dashboard HTML |
+| `/console/api/topology` | GET | JSON graph: nodes (adapters + breaker state) and edges (topic → adapter) |
+| `/console/api/logs` | GET | Last 200 log entries as JSON array |
+| `/console/api/logs/stream` | GET | SSE stream of new log entries |
+| `/console/api/adapters/:name/toggle` | POST | Toggle adapter enabled/disabled at runtime |
 
 ---
 
