@@ -4,6 +4,10 @@ import { envSchemas, type envDTO } from "../schemas/envConfigSchemas";
 
 let _config: envDTO | null = null;
 
+// Indirection prevents the bundler from rewriting the dynamic import
+// into Bun.resolveSync (which uses module resolution, not filesystem paths).
+const dynamicImport = new Function("specifier", "return import(specifier)") as (s: string) => Promise<{ default: unknown }>;
+
 /**
  * Load and validate bus/env.config.toml once at boot. Caches the result.
  * Fails loudly if the file is missing or doesn't match the schema.
@@ -11,7 +15,7 @@ let _config: envDTO | null = null;
 export async function loadEnvConfig(path = "bus/env.config.toml"): Promise<envDTO> {
   if (_config) return _config;
   const abs = resolve(process.cwd(), path);
-  const mod = await import(pathToFileURL(abs).href);
+  const mod = await dynamicImport(pathToFileURL(abs).href);
   _config = envSchemas.parse(mod.default);
   return _config;
 }

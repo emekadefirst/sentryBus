@@ -1,9 +1,9 @@
 name = "zoho-crm"
 enabled = true
 protocol = "http"
-baseUrl = "${ZOHO_CRM_BASE_URL}"
+baseUrl = "https://www.zohoapis.com/crm/v6"
 timeoutMs = 5000
-credentialKey = "${ZOHO_CRM_TOKEN}"
+credentialKey = "ZOHO_CRM_TOKEN"
 topics = ["driver.onboarded", "company.account.updated"]
 envelopeVersion = "1.0"
 
